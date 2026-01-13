@@ -170,4 +170,47 @@ export class Renderer {
         this.ctx.fillStyle = color;
         this.ctx.fill();
     }
+
+    /**
+     * Draw with a classic SNES mosaic pixelation effect
+     */
+    drawMosaic(ctx: CanvasRenderingContext2D, drawFn: (ctx: CanvasRenderingContext2D) => void, factor: number): void {
+        const canvas = ctx.canvas;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // 1. Create a tiny offscreen buffer
+        const offscreen = document.createElement('canvas');
+        offscreen.width = Math.max(1, width / factor);
+        offscreen.height = Math.max(1, height / factor);
+        const oCtx = offscreen.getContext('2d')!;
+        oCtx.imageSmoothingEnabled = false;
+
+        // 2. Draw scene to tiny buffer (downscale)
+        oCtx.save();
+        oCtx.scale(1 / factor, 1 / factor);
+        drawFn(oCtx);
+        oCtx.restore();
+
+        // 3. Draw tiny buffer back to main canvas (upscale)
+        ctx.save();
+        ctx.resetTransform();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offscreen, 0, 0, width, height);
+        ctx.restore();
+    }
+
+    /**
+     * Apply Color Grading and CRT FX (Phosphor Glow)
+     */
+    applyPostProcessing(ctx: CanvasRenderingContext2D): void {
+        // CRT Scanlines are already handled in CSS for performance
+        // This adds a light "bloom" or "phosphor" feel via global composite
+        ctx.save();
+        ctx.resetTransform();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = 'rgba(255, 230, 200, 0.05)'; // Warm phosphor glow
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.restore();
+    }
 }

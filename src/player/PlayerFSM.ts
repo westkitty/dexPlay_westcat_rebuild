@@ -60,7 +60,6 @@ export class Player {
 
     // Timers
     private coyoteTimer: number = 0;
-    private jumpBufferTimer: number = 0;
     private canDoubleJump: boolean = false;
 
     // Squash & Stretch
@@ -144,6 +143,11 @@ export class Player {
 
         // Idle friction
         this.vx *= FRICTION;
+
+        // Auto-consume jump buffer if landing in idle
+        if (this.input.jumpBuffered) {
+            this.doJump();
+        }
     }
 
     private updateRun(dt: number): void {
@@ -173,20 +177,26 @@ export class Player {
         if (this.input.right) {
             this.ax = ACCELERATION;
             this.facingRight = true;
-        } else if (this.input.left) {
-            this.ax = -ACCELERATION;
-            this.facingRight = false;
-        }
+            if (this.input.left) {
+                this.ax = -ACCELERATION;
+                this.facingRight = false;
+            }
 
-        // Run particles
-        this.runParticleTimer += dt;
-        if (this.runParticleTimer > 100) {
-            this.runParticleTimer = 0;
-            this.engine.particles.emitDust(
-                this.x + this.width / 2,
-                this.y + this.height,
-                2
-            );
+            // Auto-jump if running into a jump with buffer
+            if (this.input.jumpBuffered) {
+                this.doJump();
+            }
+
+            // Run particles
+            this.runParticleTimer += dt;
+            if (this.runParticleTimer > 100) {
+                this.runParticleTimer = 0;
+                this.engine.particles.emitDust(
+                    this.x + this.width / 2,
+                    this.y + this.height,
+                    2
+                );
+            }
         }
     }
 
@@ -356,13 +366,13 @@ export class Player {
     }
 
     private wantsToJump(): boolean {
-        return this.input.jumpJustPressed || this.jumpBufferTimer > 0;
+        return this.input.jumpBuffered;
     }
 
     private doJump(): void {
         this.vy = -JUMP_FORCE;
         this.coyoteTimer = 0;
-        this.jumpBufferTimer = 0;
+        this.input.consumeJumpBuffer();
 
         // Squash on jump startup
         this.targetScaleX = SQUASH.x;
@@ -428,16 +438,11 @@ export class Player {
         this.y += this.vy * dtSec;
 
         // Update timers
+        // Update timers
         if (this.grounded) {
             this.coyoteTimer = COYOTE_TIME;
         } else {
             this.coyoteTimer -= dt;
-        }
-
-        if (this.input.jumpJustPressed) {
-            this.jumpBufferTimer = JUMP_BUFFER;
-        } else {
-            this.jumpBufferTimer -= dt;
         }
 
         // Reset acceleration (applied each frame)

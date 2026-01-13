@@ -20,7 +20,7 @@ window.addEventListener('DOMContentLoaded', () => {
     engine.addScene('game', new GameScene(engine));
 
     // Start with title
-    engine.switchScene('title');
+    engine.switchScene('title', true);
 
     // Start game loop
     engine.start();

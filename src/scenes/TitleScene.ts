@@ -129,7 +129,7 @@ export class TitleScene implements Scene {
 
         // Check for start input
         if (this.engine.input.confirm) {
-            this.engine.switchScene('game');
+            this.engine.switchScene('game', true);
         }
     }
 

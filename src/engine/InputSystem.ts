@@ -14,6 +14,10 @@ export class InputSystem {
     // Previous frame state (for edge detection)
     private prevKeys: Set<string> = new Set();
 
+    // Buffers and Timers
+    private jumpBufferTimer: number = 0;
+    private readonly JUMP_BUFFER_LIMIT: number = 100; // ms
+
     // Gamepad state
     private gamepadIndex: number = -1;
 
@@ -43,7 +47,10 @@ export class InputSystem {
     /**
      * Update input state - call once per frame
      */
-    update(): void {
+    update(dt: number = 16.6): void {
+        // Update timers
+        if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
+
         // Calculate edge states
         this.keysJustPressed.clear();
         this.keysJustReleased.clear();
@@ -122,6 +129,20 @@ export class InputSystem {
 
     get confirm(): boolean {
         return this.isJustPressed('Enter') || this.isJustPressed('Space');
+    }
+
+    /**
+     * Jump Buffer Logic
+     */
+    get jumpBuffered(): boolean {
+        if (this.jumpJustPressed) {
+            this.jumpBufferTimer = this.JUMP_BUFFER_LIMIT;
+        }
+        return this.jumpBufferTimer > 0;
+    }
+
+    consumeJumpBuffer(): void {
+        this.jumpBufferTimer = 0;
     }
 
     // === Gamepad helpers ===

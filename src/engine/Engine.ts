@@ -39,6 +39,13 @@ export class Engine {
     private currentScene: Scene | null = null;
     private scenes: Map<string, Scene> = new Map();
 
+    // Transition State
+    private transitionActive: boolean = false;
+    private transitionTimer: number = 0;
+    private readonly TRANSITION_DURATION: number = 500; // ms
+    private nextSceneKey: string | null = null;
+    private mosaicFactor: number = 1;
+
     // Game dimensions (internal resolution - High Res SNES Style)
     public readonly WIDTH = 800;
     public readonly HEIGHT = 600;
@@ -75,9 +82,20 @@ export class Engine {
     }
 
     /**
-     * Switch to a scene
+     * Switch to a scene with a classic SNES mosaic transition
      */
-    switchScene(name: string): void {
+    switchScene(name: string, withTransition: boolean = true): void {
+        if (withTransition && !this.transitionActive) {
+            this.transitionActive = true;
+            this.transitionTimer = 0;
+            this.nextSceneKey = name;
+            console.log(`⏱️ Transitioning to scene: ${name}`);
+        } else if (!withTransition) {
+            this.performSwitch(name);
+        }
+    }
+
+    private performSwitch(name: string): void {
         if (this.currentScene) {
             this.currentScene.exit();
         }
@@ -145,7 +163,28 @@ export class Engine {
      */
     private update(dt: number): void {
         // Update input
-        this.input.update();
+        this.input.update(dt);
+
+        // Update transition
+        if (this.transitionActive) {
+            this.transitionTimer += dt;
+            const half = this.TRANSITION_DURATION / 2;
+
+            // At peak of transition, switch scenes
+            if (this.transitionTimer >= half && this.nextSceneKey) {
+                this.performSwitch(this.nextSceneKey);
+                this.nextSceneKey = null;
+            }
+
+            if (this.transitionTimer >= this.TRANSITION_DURATION) {
+                this.transitionActive = false;
+                this.mosaicFactor = 1;
+            } else {
+                // Peak mosaic factor (pixelation) in the middle
+                const progress = 1 - Math.abs(this.transitionTimer - half) / half;
+                this.mosaicFactor = 1 + progress * 16;
+            }
+        }
 
         // Update camera
         this.camera.update(dt);
@@ -175,7 +214,13 @@ export class Engine {
 
         // Draw current scene (world space)
         if (this.currentScene) {
-            this.currentScene.draw(this.ctx, alpha);
+            if (this.transitionActive && this.mosaicFactor > 1) {
+                this.renderer.drawMosaic(this.ctx, (ctx) => {
+                    this.currentScene!.draw(ctx, alpha);
+                }, Math.floor(this.mosaicFactor));
+            } else {
+                this.currentScene.draw(this.ctx, alpha);
+            }
         }
 
         // Draw particles (world space)
@@ -184,7 +229,10 @@ export class Engine {
         // Restore context
         this.ctx.restore();
 
-        // Draw UI (screen space - after camera transform is removed)
+        // Apply post-processing (screen space)
+        this.renderer.applyPostProcessing(this.ctx);
+
+        // Draw UI
         this.drawUI();
     }
 
