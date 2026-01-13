@@ -29,21 +29,25 @@ export class Renderer {
 
         // Draw scanline by scanline from horizon down
         for (let y = horizonY; y < h; y++) {
-            const scanlineHeight = y - horizonY;
-            const perspectiveScale = (scanlineHeight / (h - horizonY)) * scale;
+            const scanlineDistance = 1 / ((y - horizonY) / (h - horizonY));
+            const perspectiveScale = scanlineDistance * scale;
 
             if (perspectiveScale <= 0) continue;
 
-            const sourceY = (1 / perspectiveScale) % image.height;
-            const destWidth = w;
-            const sourceWidth = w / perspectiveScale;
+            const sourceWidth = w * perspectiveScale;
+            const sourceHeight = 1; // 1 scanline
 
-            const sourceX = (this.camera.x * 0.5) % image.width;
+            // Center the floor and add horizontal scroll
+            const sourceX = (this.camera.x * 0.5 - sourceWidth / 2) % image.width;
+            const sourceY = (scanlineDistance * 200) % image.height;
+
+            const safeX = (sourceX + image.width) % image.width;
+            const safeY = (sourceY + image.height) % image.height;
 
             ctx.drawImage(
                 image,
-                Math.floor(sourceX), Math.floor(sourceY), Math.floor(sourceWidth), 1,
-                0, y, destWidth, 1
+                Math.floor(safeX), Math.floor(safeY), Math.min(Math.floor(sourceWidth), image.width), 1,
+                0, y, w, 1
             );
         }
 

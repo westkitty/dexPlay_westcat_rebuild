@@ -6,6 +6,7 @@
 
 import { Engine } from '../engine/Engine';
 import { COWICHAN_CSS } from '../constants/Colors';
+import { Player } from '../player/PlayerFSM';
 
 export type BossState = 'hover' | 'swoop' | 'stagger' | 'feather_rain';
 
@@ -31,7 +32,7 @@ export class BossOwl {
         this.y = y;
     }
 
-    update(dt: number): void {
+    update(dt: number, player: Player): void {
         this.timer += dt;
         this.floatTimer += dt * 0.005;
 
@@ -40,7 +41,7 @@ export class BossOwl {
                 this.updateHover(dt);
                 break;
             case 'swoop':
-                this.updateSwoop(dt);
+                this.updateSwoop(dt, player);
                 break;
             case 'stagger':
                 this.updateStagger(dt);
@@ -60,8 +61,7 @@ export class BossOwl {
         }
     }
 
-    private updateSwoop(dt: number): void {
-        const player = (this.engine as any).currentScene.player; // Hack for now
+    private updateSwoop(dt: number, player: Player): void {
         if (!player) return;
 
         // Move towards player

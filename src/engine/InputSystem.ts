@@ -11,6 +11,11 @@ export class InputSystem {
     private keysJustPressed: Set<string> = new Set();
     private keysJustReleased: Set<string> = new Set();
 
+    // Gamepad state
+    private gamepadButtons: boolean[] = new Array(16).fill(false);
+    private prevGamepadButtons: boolean[] = new Array(16).fill(false);
+    private gamepadAxes: number[] = new Array(4).fill(0);
+
     // Previous frame state (for edge detection)
     private prevKeys: Set<string> = new Set();
 
@@ -172,30 +177,36 @@ export class InputSystem {
     // === Gamepad helpers ===
 
     private pollGamepad(): void {
-        // Gamepad API requires active polling
-        if (this.gamepadIndex >= 0) {
-            const gamepads = navigator.getGamepads();
-            // Gamepad exists - buttons are read directly in getGamepadButton
+        if (this.gamepadIndex < 0) return;
+
+        const gamepads = navigator.getGamepads();
+        const gp = gamepads[this.gamepadIndex];
+
+        if (gp) {
+            // Save prev state for justPressed logic
+            this.prevGamepadButtons = [...this.gamepadButtons];
+
+            // Update buttons
+            for (let i = 0; i < gp.buttons.length; i++) {
+                if (i < 16) this.gamepadButtons[i] = gp.buttons[i].pressed;
+            }
+
+            // Update axes
+            for (let i = 0; i < gp.axes.length; i++) {
+                if (i < 4) this.gamepadAxes[i] = gp.axes[i];
+            }
         }
     }
 
     private getGamepadAxis(axis: number): number {
-        if (this.gamepadIndex < 0) return 0;
-        const gamepads = navigator.getGamepads();
-        const gp = gamepads[this.gamepadIndex];
-        if (gp && gp.axes[axis] !== undefined) {
-            return gp.axes[axis];
-        }
-        return 0;
+        return this.gamepadAxes[axis] || 0;
     }
 
     private getGamepadButton(button: number): boolean {
-        if (this.gamepadIndex < 0) return false;
-        const gamepads = navigator.getGamepads();
-        const gp = gamepads[this.gamepadIndex];
-        if (gp && gp.buttons[button]) {
-            return gp.buttons[button].pressed;
-        }
-        return false;
+        return this.gamepadButtons[button] || false;
+    }
+
+    private isGamepadJustPressed(button: number): boolean {
+        return this.gamepadButtons[button] && !this.prevGamepadButtons[button];
     }
 }

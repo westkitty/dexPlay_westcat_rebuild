@@ -57,7 +57,7 @@ export class GameScene implements Scene {
         console.log('🎮 Exiting Game Scene');
     }
 
-    update(dt: number): void {
+    async update(dt: number): Promise<void> {
         if (!this.levelData) return;
 
         this.gameTime += dt;
@@ -65,11 +65,11 @@ export class GameScene implements Scene {
 
         // Collisions
         this.handleCollisions();
-        this.handleEntities();
+        await this.handleEntities();
 
         // Update Boss
         if (this.boss) {
-            this.boss.update(dt);
+            this.boss.update(dt, this.player);
             // Check player attack vs boss
             if (this.player.isAttacking) {
                 const bossBounds = { x: this.boss.x, y: this.boss.y, width: this.boss.width, height: this.boss.height };
@@ -123,7 +123,7 @@ export class GameScene implements Scene {
         }
     }
 
-    private handleEntities(): void {
+    private async handleEntities(): Promise<void> {
         if (!this.levelData) return;
 
         const playerBounds = this.player.getBounds();
@@ -139,13 +139,13 @@ export class GameScene implements Scene {
                     this.engine.particles.emitGlitter(entity.x + 10, entity.y + 10);
                     this.levelData.entities.splice(i, 1);
 
-                    // Save progress (Native Async)
-                    SaveSystem.save(0, {
+                    // Save progress (Native Async - await to prevent race conditions)
+                    await SaveSystem.save(0, {
                         coins: this.player.coins,
                         score: this.score,
                         level: 1,
                         lastSaved: ''
-                    });
+                    }).catch(err => console.error("Failed to save:", err));
                 } else if (entity.type === 'enemy') {
                     // Stomp check
                     if (this.player.vy > 0 && this.player.y + this.player.height < entity.y + 10) {

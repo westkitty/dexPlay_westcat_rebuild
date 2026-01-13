@@ -108,7 +108,7 @@ export class Engine {
         this.input = new InputSystem();
         this.particles = new ParticleSystem(500); // Pool of 500 particles
         this.renderer = new Renderer(this.ctx, this.camera);
-        this.weather = new WeatherManager();
+        this.weather = new WeatherManager(this.WIDTH, this.HEIGHT);
         this.sound = new SoundDevice();
 
         console.log('🎮 Engine initialized');
@@ -195,7 +195,7 @@ export class Engine {
     /**
      * The main game loop - fixed timestep update, variable render
      */
-    private gameLoop(currentTime: number): void {
+    private async gameLoop(currentTime: number): Promise<void> {
         if (!this.running) return;
 
         const frameTime = currentTime - this.lastTime;
@@ -207,7 +207,7 @@ export class Engine {
         // Prevent spiral of death
         let updates = 0;
         while (this.accumulator >= FIXED_TIMESTEP && updates < MAX_FRAME_SKIP) {
-            this.update(FIXED_TIMESTEP);
+            await this.update(FIXED_TIMESTEP);
             this.accumulator -= FIXED_TIMESTEP;
             updates++;
         }
@@ -225,7 +225,7 @@ export class Engine {
     /**
      * Fixed timestep update (logic)
      */
-    private update(dt: number): void {
+    private async update(dt: number): Promise<void> {
         // Update input
         this.input.update(dt);
 
@@ -257,11 +257,11 @@ export class Engine {
         this.particles.update(dt);
 
         // Update weather
-        this.weather.update(dt);
+        this.weather.update(dt, this.WIDTH, this.HEIGHT);
 
         // Update current scene
         if (this.currentScene) {
-            this.currentScene.update(dt);
+            await this.currentScene.update(dt);
         }
     }
 
@@ -294,7 +294,7 @@ export class Engine {
         this.particles.draw(this.ctx);
 
         // Draw weather (screen space or world space? for rain usually screen space)
-        this.weather.draw(this.renderer, this.ctx);
+        this.weather.draw(this.renderer, this.ctx, this.WIDTH, this.HEIGHT);
 
         // Restore context
         this.ctx.restore();
