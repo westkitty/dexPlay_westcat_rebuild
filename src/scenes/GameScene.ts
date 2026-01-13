@@ -5,7 +5,8 @@
 import { Engine } from '../engine/Engine';
 import type { Scene } from '../engine/Engine';
 import { Player } from '../player/PlayerFSM';
-import { LevelLoader, LevelData } from '../engine/LevelLoader';
+import { LevelLoader } from '../engine/LevelLoader';
+import type { LevelData } from '../engine/LevelLoader';
 import { checkAABB, resolveCollision } from '../physics/Physics';
 import { COWICHAN_CSS } from '../constants/Colors';
 
