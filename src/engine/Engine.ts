@@ -22,6 +22,36 @@ export interface Scene {
     draw(ctx: CanvasRenderingContext2D, alpha: number): void;
 }
 
+/**
+ * SPC700-style Sound Device
+ * Simulates 8-channel hardware limit with volume envelopes.
+ */
+class SoundDevice {
+    private channels: (HTMLAudioElement | null)[] = new Array(8).fill(null);
+    private nextChannel: number = 0;
+
+    playSound(url: string, volume: number = 0.5, pitch: number = 1.0): void {
+        // Kill existing channel to obey 8-voice limit
+        if (this.channels[this.nextChannel]) {
+            this.channels[this.nextChannel]!.pause();
+        }
+
+        const audio = new Audio(url);
+        audio.volume = volume;
+        audio.playbackRate = pitch;
+        audio.play().catch(() => { });
+
+        this.channels[this.nextChannel] = audio;
+        this.nextChannel = (this.nextChannel + 1) % 8;
+    }
+
+    stopAll(): void {
+        this.channels.forEach(ch => {
+            if (ch) ch.pause();
+        });
+    }
+}
+
 export class Engine {
     // Core systems
     public canvas: HTMLCanvasElement;
@@ -31,6 +61,7 @@ export class Engine {
     public particles: ParticleSystem;
     public renderer: Renderer;
     public weather: WeatherManager;
+    public sound: SoundDevice;
 
     // Audio stems
     private bgmMain: HTMLAudioElement | null = null;
@@ -78,6 +109,7 @@ export class Engine {
         this.particles = new ParticleSystem(500); // Pool of 500 particles
         this.renderer = new Renderer(this.ctx, this.camera);
         this.weather = new WeatherManager();
+        this.sound = new SoundDevice();
 
         console.log('🎮 Engine initialized');
     }

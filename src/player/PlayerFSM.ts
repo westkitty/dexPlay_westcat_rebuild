@@ -186,7 +186,7 @@ export class Player {
             return;
         }
 
-        if (this.input.isJustPressed('KeyX') || this.input.isJustPressed('KeyJ')) {
+        if (this.input.attackJustPressed) {
             this.enterState('claw');
             return;
         }

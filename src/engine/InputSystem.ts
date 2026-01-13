@@ -21,6 +21,18 @@ export class InputSystem {
     // Gamepad state
     private gamepadIndex: number = -1;
 
+    // Mapping
+    private mapping: Record<string, string[]> = {
+        left: ['ArrowLeft', 'KeyA'],
+        right: ['ArrowRight', 'KeyD'],
+        up: ['ArrowUp', 'KeyW'],
+        down: ['ArrowDown', 'KeyS'],
+        jump: ['Space', 'KeyW', 'ArrowUp', 'KeyK'],
+        attack: ['KeyX', 'KeyJ'],
+        pause: ['Escape', 'KeyP'],
+        confirm: ['Enter', 'Space']
+    };
+
     constructor() {
         // Keyboard listeners
         window.addEventListener('keydown', (e) => {
@@ -100,35 +112,47 @@ export class InputSystem {
     // === Semantic input helpers ===
 
     get left(): boolean {
-        return this.isDown('ArrowLeft') || this.isDown('KeyA') || this.getGamepadAxis(0) < -0.3;
+        return this.mapping.left.some(k => this.isDown(k)) || this.getGamepadAxis(0) < -0.3;
     }
 
     get right(): boolean {
-        return this.isDown('ArrowRight') || this.isDown('KeyD') || this.getGamepadAxis(0) > 0.3;
+        return this.mapping.right.some(k => this.isDown(k)) || this.getGamepadAxis(0) > 0.3;
     }
 
     get up(): boolean {
-        return this.isDown('ArrowUp') || this.isDown('KeyW') || this.getGamepadAxis(1) < -0.3;
+        return this.mapping.up.some(k => this.isDown(k)) || this.getGamepadAxis(1) < -0.3;
     }
 
     get down(): boolean {
-        return this.isDown('ArrowDown') || this.isDown('KeyS') || this.getGamepadAxis(1) > 0.3;
+        return this.mapping.down.some(k => this.isDown(k)) || this.getGamepadAxis(1) > 0.3;
     }
 
     get jump(): boolean {
-        return this.isDown('Space') || this.isDown('KeyW') || this.isDown('ArrowUp') || this.getGamepadButton(0);
+        return this.mapping.jump.some(k => this.isDown(k)) || this.getGamepadButton(0);
     }
 
     get jumpJustPressed(): boolean {
-        return this.isJustPressed('Space') || this.isJustPressed('KeyW') || this.isJustPressed('ArrowUp');
+        return this.mapping.jump.some(k => this.isJustPressed(k));
     }
 
     get pause(): boolean {
-        return this.isJustPressed('Escape') || this.isJustPressed('KeyP');
+        return this.mapping.pause.some(k => this.isJustPressed(k));
     }
 
     get confirm(): boolean {
-        return this.isJustPressed('Enter') || this.isJustPressed('Space');
+        return this.mapping.confirm.some(k => this.isJustPressed(k));
+    }
+
+    get attackJustPressed(): boolean {
+        return this.mapping.attack.some(k => this.isJustPressed(k));
+    }
+
+    setMapping(action: string, keys: string[]): void {
+        if (this.mapping[action]) {
+            this.mapping[action] = keys;
+            // Save to local storage for persistence
+            localStorage.setItem('input_mapping', JSON.stringify(this.mapping));
+        }
     }
 
     /**

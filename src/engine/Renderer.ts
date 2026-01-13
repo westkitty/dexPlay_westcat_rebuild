@@ -16,6 +16,41 @@ export class Renderer {
     }
 
     /**
+     * Draw a pseudo-3D Mode 7 floor
+     */
+    drawMode7Floor(image: HTMLImageElement | HTMLCanvasElement, horizonY: number, scale: number = 1): void {
+        const ctx = this.ctx;
+        const canvas = ctx.canvas;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.save();
+        ctx.resetTransform();
+
+        // Draw scanline by scanline from horizon down
+        for (let y = horizonY; y < h; y++) {
+            const scanlineHeight = y - horizonY;
+            const perspectiveScale = (scanlineHeight / (h - horizonY)) * scale;
+
+            if (perspectiveScale <= 0) continue;
+
+            const sourceY = (1 / perspectiveScale) % image.height;
+            const destWidth = w;
+            const sourceWidth = w / perspectiveScale;
+
+            const sourceX = (this.camera.x * 0.5) % image.width;
+
+            ctx.drawImage(
+                image,
+                Math.floor(sourceX), Math.floor(sourceY), Math.floor(sourceWidth), 1,
+                0, y, destWidth, 1
+            );
+        }
+
+        ctx.restore();
+    }
+
+    /**
      * Clear the screen with a color
      */
     clear(color: string = '#000000'): void {

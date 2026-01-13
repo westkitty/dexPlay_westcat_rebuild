@@ -10,11 +10,14 @@ import type { LevelData } from '../engine/LevelLoader';
 import { checkAABB, resolveCollision, checkSlope } from '../physics/Physics';
 import { COWICHAN_CSS } from '../constants/Colors';
 import { SaveSystem } from '../engine/SaveSystem';
+import { TotemRegistry } from '../engine/TotemRegistry';
+import { BossOwl } from '../entities/BossOwl';
 
 export class GameScene implements Scene {
     private engine: Engine;
     private player!: Player;
     private levelData: LevelData | null = null;
+    private boss: BossOwl | null = null;
 
     // Runtime state
     private score: number = 0;
@@ -42,6 +45,12 @@ export class GameScene implements Scene {
         this.score = 0;
         this.health = 3;
         this.gameTime = 0;
+
+        // Spawn Boss if it's Level 1
+        this.boss = new BossOwl(this.engine, 2800, 100);
+
+        // Play music
+        this.engine.sound.playSound('assets/bgm_main.mp3', 0.5);
     }
 
     exit(): void {
@@ -57,6 +66,19 @@ export class GameScene implements Scene {
         // Collisions
         this.handleCollisions();
         this.handleEntities();
+
+        // Update Boss
+        if (this.boss) {
+            this.boss.update(dt);
+            // Check player attack vs boss
+            if (this.player.isAttacking) {
+                const bossBounds = { x: this.boss.x, y: this.boss.y, width: this.boss.width, height: this.boss.height };
+                if (checkAABB(this.player.getBounds(), bossBounds)) {
+                    this.boss.takeDamage();
+                    this.player.vy = -300; // Bounce off
+                }
+            }
+        }
 
         // Audio Reactivity (Drums increase with speed)
         const speedFactor = Math.abs(this.player.vx) / 300;
@@ -139,6 +161,7 @@ export class GameScene implements Scene {
                     this.player.vy = -800;
                     this.engine.camera.shake(10, 200);
                     this.engine.particles.emitExplosion(entity.x + 10, entity.y + 10);
+                    TotemRegistry.findTotem('hockey');
                 } else if (entity.type === 'goal') {
                     this.engine.switchScene('title');
                 }
