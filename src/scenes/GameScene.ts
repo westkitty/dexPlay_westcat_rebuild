@@ -58,6 +58,10 @@ export class GameScene implements Scene {
         this.handleCollisions();
         this.handleEntities();
 
+        // Audio Reactivity (Drums increase with speed)
+        const speedFactor = Math.abs(this.player.vx) / 300;
+        this.engine.setDrumIntensity(Math.min(1, speedFactor));
+
         // Death check
         if (this.player.y > this.levelData.height + 100) {
             this.takeDamage();
@@ -89,6 +93,10 @@ export class GameScene implements Scene {
                     this.player.vy = 0;
                     this.player.grounded = true;
                 }
+            } else if (platform.type === 'water') {
+                if (checkAABB(playerBounds, platform)) {
+                    this.player.isInWater = true;
+                }
             }
         }
     }
@@ -105,12 +113,13 @@ export class GameScene implements Scene {
             if (checkAABB(playerBounds, entityBounds)) {
                 if (entity.type === 'coin') {
                     this.score += 100;
+                    this.player.coins++;
                     this.engine.particles.emitGlitter(entity.x + 10, entity.y + 10);
                     this.levelData.entities.splice(i, 1);
 
-                    // Save progress
+                    // Save progress (Native Async)
                     SaveSystem.save(0, {
-                        coins: this.player.coins, // Note: I need to ensure player has a coins property
+                        coins: this.player.coins,
                         score: this.score,
                         level: 1,
                         lastSaved: ''
@@ -125,6 +134,11 @@ export class GameScene implements Scene {
                     } else {
                         this.takeDamage();
                     }
+                } else if (entity.type === 'hockey_launcher') {
+                    // World's Largest Hockey Stick Launcher!
+                    this.player.vy = -800;
+                    this.engine.camera.shake(10, 200);
+                    this.engine.particles.emitExplosion(entity.x + 10, entity.y + 10);
                 } else if (entity.type === 'goal') {
                     this.engine.switchScene('title');
                 }

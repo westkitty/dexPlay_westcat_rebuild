@@ -11,12 +11,12 @@ export interface LevelData {
         y: number;
         width: number;
         height: number;
-        type: 'ground' | 'platform' | 'hazard';
+        type: 'ground' | 'platform' | 'hazard' | 'slopeLeft' | 'slopeRight' | 'water';
     }>;
     entities: Array<{
         x: number;
         y: number;
-        type: 'coin' | 'enemy' | 'goal';
+        type: 'coin' | 'enemy' | 'goal' | 'hockey_launcher';
     }>;
 }
 

@@ -9,6 +9,7 @@ import { Camera } from './Camera';
 import { InputSystem } from './InputSystem';
 import { ParticleSystem } from './ParticleSystem';
 import { Renderer } from './Renderer';
+import { WeatherManager } from './WeatherManager';
 
 // Target 60 FPS logic tick
 const FIXED_TIMESTEP = 1000 / 60;
@@ -29,6 +30,12 @@ export class Engine {
     public input: InputSystem;
     public particles: ParticleSystem;
     public renderer: Renderer;
+    public weather: WeatherManager;
+
+    // Audio stems
+    private bgmMain: HTMLAudioElement | null = null;
+    private bgmDrums: HTMLAudioElement | null = null;
+    private drumIntensity: number = 0;
 
     // Game loop state
     private lastTime: number = 0;
@@ -70,6 +77,7 @@ export class Engine {
         this.input = new InputSystem();
         this.particles = new ParticleSystem(500); // Pool of 500 particles
         this.renderer = new Renderer(this.ctx, this.camera);
+        this.weather = new WeatherManager();
 
         console.log('🎮 Engine initialized');
     }
@@ -108,6 +116,30 @@ export class Engine {
         this.currentScene = scene;
         this.currentScene.enter();
         console.log(`📍 Switched to scene: ${name}`);
+
+        // Reset weather on scene change if needed
+    }
+
+    /**
+     * Set up dynamic music hardware (SPC700 simulation feel)
+     */
+    initAudio(mainUrl: string, drumUrl: string): void {
+        this.bgmMain = new Audio(mainUrl);
+        this.bgmMain.loop = true;
+
+        this.bgmDrums = new Audio(drumUrl);
+        this.bgmDrums.loop = true;
+        this.bgmDrums.volume = 0;
+
+        this.bgmMain.play();
+        this.bgmDrums.play();
+    }
+
+    setDrumIntensity(intensity: number): void {
+        this.drumIntensity = intensity;
+        if (this.bgmDrums) {
+            this.bgmDrums.volume = intensity;
+        }
     }
 
     /**
@@ -192,6 +224,9 @@ export class Engine {
         // Update particles
         this.particles.update(dt);
 
+        // Update weather
+        this.weather.update(dt);
+
         // Update current scene
         if (this.currentScene) {
             this.currentScene.update(dt);
@@ -225,6 +260,9 @@ export class Engine {
 
         // Draw particles (world space)
         this.particles.draw(this.ctx);
+
+        // Draw weather (screen space or world space? for rain usually screen space)
+        this.weather.draw(this.renderer, this.ctx);
 
         // Restore context
         this.ctx.restore();

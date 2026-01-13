@@ -10,35 +10,23 @@ export interface GameSave {
 }
 
 export class SaveSystem {
-    private static readonly KEY_PREFIX = 'westcat_save_';
-
-    static save(slot: number, data: GameSave): void {
-        const key = `${this.KEY_PREFIX}${slot}`;
-        localStorage.setItem(key, JSON.stringify({
+    static async save(slot: number, data: GameSave): Promise<void> {
+        await window.electronAPI.saveGame(slot, {
             ...data,
             lastSaved: new Date().toISOString()
-        }));
-        console.log(`💾 Saved to slot ${slot}`);
+        });
+        console.log(`💾 Saved to native file (slot ${slot})`);
     }
 
-    static load(slot: number): GameSave | null {
-        const key = `${this.KEY_PREFIX}${slot}`;
-        const data = localStorage.getItem(key);
-        if (!data) return null;
-        try {
-            return JSON.parse(data) as GameSave;
-        } catch (e) {
-            console.error(`❌ Failed to load save slot ${slot}`, e);
-            return null;
-        }
+    static async load(slot: number): Promise<GameSave | null> {
+        return await window.electronAPI.loadGame(slot);
     }
 
-    static delete(slot: number): void {
-        const key = `${this.KEY_PREFIX}${slot}`;
-        localStorage.removeItem(key);
+    static async delete(slot: number): Promise<void> {
+        await window.electronAPI.deleteSave(slot);
     }
 
-    static hasSave(slot: number): boolean {
-        return localStorage.getItem(`${this.KEY_PREFIX}${slot}`) !== null;
+    static async hasSave(slot: number): Promise<boolean> {
+        return await window.electronAPI.hasSave(slot);
     }
 }

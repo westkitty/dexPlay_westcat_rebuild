@@ -7,6 +7,7 @@
 
 import { Engine } from '../engine/Engine';
 import { InputSystem } from '../engine/InputSystem';
+import { checkAABB, resolveCollision, clamp } from '../physics/Physics';
 
 // Physics constants (acceleration-based movement)
 const ACCELERATION = 1200;
@@ -29,7 +30,7 @@ const SQUASH = { x: 1.3, y: 0.7 };
 const STRETCH = { x: 0.85, y: 1.15 };
 const LAND_SQUASH = { x: 1.4, y: 0.6 };
 
-export type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'skid' | 'wallSlide' | 'claw';
+export type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'skid' | 'wallSlide' | 'claw' | 'swim';
 
 export class Player {
     // Position and velocity
@@ -53,6 +54,7 @@ export class Player {
     // Grounding
     public grounded: boolean = false;
     private wasGrounded: boolean = false;
+    public isInWater: boolean = false;
 
     // Stats
     public coins: number = 0;
@@ -121,6 +123,16 @@ export class Player {
             case 'claw':
                 this.updateClaw(dt);
                 break;
+            case 'swim':
+                this.updateSwim(dt);
+                break;
+        }
+
+        // Auto-detect water entry
+        if (this.isInWater && this.state !== 'swim') {
+            this.enterState('swim');
+        } else if (!this.isInWater && this.state === 'swim') {
+            this.enterState('fall');
         }
 
         // Apply physics
@@ -368,6 +380,38 @@ export class Player {
         }
     }
 
+    private updateSwim(dt: number): void {
+        const SWIM_SPEED = 150;
+        const BUOYANCY = -200;
+
+        // Swim movement
+        if (this.input.left) {
+            this.vx = -SWIM_SPEED;
+            this.facingRight = false;
+        } else if (this.input.right) {
+            this.vx = SWIM_SPEED;
+            this.facingRight = true;
+        } else {
+            this.vx *= 0.95;
+        }
+
+        // Buoyancy / Sink control
+        if (this.input.jump) {
+            this.vy = -SWIM_SPEED; // Swim up
+        } else {
+            this.vy += (BUOYANCY + GRAVITY * 0.5) * (dt / 1000);
+            this.vy = clamp(this.vy, -SWIM_SPEED, SWIM_SPEED);
+        }
+
+        // Particles
+        if (Math.abs(this.vx) > 50 || Math.abs(this.vy) > 50) {
+            // Emitting bubbles (placeholder via emitDust for now)
+            if (Math.random() < 0.1) {
+                this.engine.particles.emitDust(this.x + this.width / 2, this.y + this.height / 2, 1);
+            }
+        }
+    }
+
     // === HELPERS ===
 
     private enterState(newState: PlayerState): void {
@@ -396,7 +440,9 @@ export class Player {
                 this.isAttacking = true;
                 this.targetScaleX = 1.2;
                 this.targetScaleY = 0.8;
-                // Attack "whoosh" sound would go here
+                break;
+            case 'swim':
+                this.vy *= 0.5;
                 break;
         }
     }

@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // High Res SNES Style
 const WINDOW_WIDTH = 800;
@@ -49,4 +50,36 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+// IPC Handlers for Native Saves
+const SAVE_DIR = path.join(app.getPath('userData'), 'saves');
+if (!fs.existsSync(SAVE_DIR)) fs.mkdirSync(SAVE_DIR);
+
+ipcMain.handle('save-game', (event, slot, data) => {
+    const filePath = path.join(SAVE_DIR, `save_${slot}.sav`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+});
+
+ipcMain.handle('load-game', (event, slot) => {
+    const filePath = path.join(SAVE_DIR, `save_${slot}.sav`);
+    if (fs.existsSync(filePath)) {
+        return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    }
+    return null;
+});
+
+ipcMain.handle('has-save', (event, slot) => {
+    const filePath = path.join(SAVE_DIR, `save_${slot}.sav`);
+    return fs.existsSync(filePath);
+});
+
+ipcMain.handle('delete-save', (event, slot) => {
+    const filePath = path.join(SAVE_DIR, `save_${slot}.sav`);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return true;
+    }
+    return false;
 });
