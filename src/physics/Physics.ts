@@ -93,6 +93,35 @@ export function resolveCollision(
 }
 
 /**
+ * Check collision with a 45-degree slope
+ */
+export function checkSlope(
+    player: { x: number; y: number; width: number; height: number; vy: number },
+    slope: { x: number; y: number; width: number; height: number; type: 'slopeLeft' | 'slopeRight' }
+): { collided: boolean; yOffset: number } {
+    if (!checkAABB(player, slope)) return { collided: false, yOffset: 0 };
+
+    const relX = player.x + player.width / 2 - slope.x;
+    const progress = clamp(relX / slope.width, 0, 1);
+
+    let targetY: number;
+    if (slope.type === 'slopeLeft') {
+        // High on left, low on right ( \ )
+        targetY = slope.y + progress * slope.height;
+    } else {
+        // Low on left, high on right ( / )
+        targetY = slope.y + (1 - progress) * slope.height;
+    }
+
+    const playerBottom = player.y + player.height;
+    if (playerBottom >= targetY - 8 && player.vy >= 0) {
+        return { collided: true, yOffset: targetY - playerBottom };
+    }
+
+    return { collided: false, yOffset: 0 };
+}
+
+/**
  * Clamp a value between min and max
  */
 export function clamp(value: number, min: number, max: number): number {

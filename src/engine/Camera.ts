@@ -30,6 +30,13 @@ export class Camera {
     private shakeOffsetX: number = 0;
     private shakeOffsetY: number = 0;
 
+    // Peeking settings
+    private peekY: number = 0;
+    private peekTarget: number = 0;
+    private peekTimer: number = 0;
+    private readonly PEEK_THRESHOLD: number = 500; // ms
+    private readonly PEEK_DISTANCE: number = 150;
+
     // Bounds (optional level bounds)
     private boundsEnabled: boolean = false;
     private minX: number = 0;
@@ -57,9 +64,28 @@ export class Camera {
         // Smooth look-ahead transition
         this.currentLookAhead += (targetLookAhead - this.currentLookAhead) * this.lookAheadSmooth;
 
-        // Set target (centered on player with look-ahead)
+        // Set target (centered on player with look-ahead and peek)
         this.targetX = x + this.currentLookAhead - this.width / 2;
-        this.targetY = y - this.height / 2;
+        this.targetY = y + this.peekY - this.height / 2;
+    }
+
+    /**
+     * Handle vertical peeking logic (look up/down)
+     */
+    updatePeeking(dt: number, upHeld: boolean, downHeld: boolean): void {
+        if (upHeld) {
+            this.peekTimer += dt;
+            if (this.peekTimer > this.PEEK_THRESHOLD) this.peekTarget = -this.PEEK_DISTANCE;
+        } else if (downHeld) {
+            this.peekTimer += dt;
+            if (this.peekTimer > this.PEEK_THRESHOLD) this.peekTarget = this.PEEK_DISTANCE;
+        } else {
+            this.peekTimer = 0;
+            this.peekTarget = 0;
+        }
+
+        // Smoothly lerp peek offset
+        this.peekY += (this.peekTarget - this.peekY) * 0.1;
     }
 
     /**

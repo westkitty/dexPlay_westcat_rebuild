@@ -7,8 +7,9 @@ import type { Scene } from '../engine/Engine';
 import { Player } from '../player/PlayerFSM';
 import { LevelLoader } from '../engine/LevelLoader';
 import type { LevelData } from '../engine/LevelLoader';
-import { checkAABB, resolveCollision } from '../physics/Physics';
+import { checkAABB, resolveCollision, checkSlope } from '../physics/Physics';
 import { COWICHAN_CSS } from '../constants/Colors';
+import { SaveSystem } from '../engine/SaveSystem';
 
 export class GameScene implements Scene {
     private engine: Engine;
@@ -73,11 +74,21 @@ export class GameScene implements Scene {
         const playerBounds = this.player.getBounds();
 
         for (const platform of this.levelData.platforms) {
-            if (checkAABB(playerBounds, platform)) {
-                const result = resolveCollision(this.player, platform);
-                if (result.grounded) this.player.grounded = true;
-                if (result.hitLeft) this.player.onRightWall = true;
-                if (result.hitRight) this.player.onLeftWall = true;
+            if (platform.type === 'ground' || platform.type === 'platform') {
+                if (checkAABB(playerBounds, platform)) {
+                    const result = resolveCollision(this.player, platform);
+                    if (result.grounded) this.player.grounded = true;
+                    if (result.hitLeft) this.player.onRightWall = true;
+                    if (result.hitRight) this.player.onLeftWall = true;
+                }
+            } else if (platform.type.startsWith('slope')) {
+                const sType = platform.type as 'slopeLeft' | 'slopeRight';
+                const sResult = checkSlope(this.player, { ...platform, type: sType });
+                if (sResult.collided) {
+                    this.player.y += sResult.yOffset;
+                    this.player.vy = 0;
+                    this.player.grounded = true;
+                }
             }
         }
     }
@@ -96,6 +107,14 @@ export class GameScene implements Scene {
                     this.score += 100;
                     this.engine.particles.emitGlitter(entity.x + 10, entity.y + 10);
                     this.levelData.entities.splice(i, 1);
+
+                    // Save progress
+                    SaveSystem.save(0, {
+                        coins: this.player.coins, // Note: I need to ensure player has a coins property
+                        score: this.score,
+                        level: 1,
+                        lastSaved: ''
+                    });
                 } else if (entity.type === 'enemy') {
                     // Stomp check
                     if (this.player.vy > 0 && this.player.y + this.player.height < entity.y + 10) {
@@ -165,10 +184,24 @@ export class GameScene implements Scene {
 
         // Player
         ctx.save();
-        ctx.translate(this.player.x + this.player.width / 2, this.player.y + this.player.height);
-        ctx.scale(this.player.scaleX * (this.player.facingRight ? 1 : -1), this.player.scaleY);
-        ctx.fillStyle = COWICHAN_CSS.CAT_ORANGE;
-        ctx.fillRect(-this.player.width / 2, -this.player.height, this.player.width, this.player.height);
+        const flip = !this.player.facingRight;
+        const scaleX = this.player.scaleX;
+        const scaleY = this.player.scaleY;
+
+        // Demonstration of drawSpriteFrame (using a placeholder colored rect for now)
+        // In a real sprite scenario, we'd pass an actual image here.
+        this.engine.renderer.drawSpriteFrame(
+            this.engine.ctx.canvas, // Placeholder
+            0, 0, 32, 40,
+            this.player.x, this.player.y,
+            this.player.width, this.player.height,
+            scaleX, scaleY, flip
+        );
+
+        // Overlay color since the above is just drawing the canvas to itself (placeholder)
+        ctx.fillStyle = this.player.isAttacking ? COWICHAN_CSS.CEDAR_RED : COWICHAN_CSS.CAT_ORANGE;
+        ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
+
         ctx.restore();
 
         // HUD

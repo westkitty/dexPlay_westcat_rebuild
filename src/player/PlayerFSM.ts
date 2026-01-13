@@ -29,7 +29,7 @@ const SQUASH = { x: 1.3, y: 0.7 };
 const STRETCH = { x: 0.85, y: 1.15 };
 const LAND_SQUASH = { x: 1.4, y: 0.6 };
 
-export type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'skid' | 'wallSlide';
+export type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'skid' | 'wallSlide' | 'claw';
 
 export class Player {
     // Position and velocity
@@ -54,6 +54,9 @@ export class Player {
     public grounded: boolean = false;
     private wasGrounded: boolean = false;
 
+    // Stats
+    public coins: number = 0;
+
     // Wall contact
     public onLeftWall: boolean = false;
     public onRightWall: boolean = false;
@@ -71,6 +74,11 @@ export class Player {
     // Reference to engine
     private engine: Engine;
     private input: InputSystem;
+
+    // Combat
+    private clawTimer: number = 0;
+    private readonly CLAW_DURATION: number = 300; // ms
+    public isAttacking: boolean = false;
 
     // Run particle timer
     private runParticleTimer: number = 0;
@@ -110,6 +118,9 @@ export class Player {
             case 'wallSlide':
                 this.updateWallSlide(dt);
                 break;
+            case 'claw':
+                this.updateClaw(dt);
+                break;
         }
 
         // Apply physics
@@ -118,7 +129,8 @@ export class Player {
         // Update squash & stretch lerp
         this.updateSquashStretch(dt);
 
-        // Update camera to follow player
+        // Update camera (following + peeking)
+        this.engine.camera.updatePeeking(dt, this.input.up, this.input.down);
         this.engine.camera.follow(this.x + this.width / 2, this.y + this.height / 2, this.vx);
     }
 
@@ -159,6 +171,11 @@ export class Player {
 
         if (this.wantsToJump()) {
             this.doJump();
+            return;
+        }
+
+        if (this.input.isJustPressed('KeyX') || this.input.isJustPressed('KeyJ')) {
+            this.enterState('claw');
             return;
         }
 
@@ -335,6 +352,22 @@ export class Player {
         }
     }
 
+    private updateClaw(dt: number): void {
+        this.clawTimer -= dt;
+
+        // Horizontal friction during claw
+        this.vx *= 0.95;
+
+        if (this.clawTimer <= 0) {
+            this.isAttacking = false;
+            if (this.grounded) {
+                this.enterState(Math.abs(this.vx) > 10 ? 'run' : 'idle');
+            } else {
+                this.enterState('fall');
+            }
+        }
+    }
+
     // === HELPERS ===
 
     private enterState(newState: PlayerState): void {
@@ -357,6 +390,13 @@ export class Player {
                 break;
             case 'wallSlide':
                 this.canDoubleJump = true;
+                break;
+            case 'claw':
+                this.clawTimer = this.CLAW_DURATION;
+                this.isAttacking = true;
+                this.targetScaleX = 1.2;
+                this.targetScaleY = 0.8;
+                // Attack "whoosh" sound would go here
                 break;
         }
     }

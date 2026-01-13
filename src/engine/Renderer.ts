@@ -86,6 +86,37 @@ export class Renderer {
     }
 
     /**
+     * Draw a specific frame from a sprite sheet
+     */
+    drawSpriteFrame(
+        image: HTMLImageElement | HTMLCanvasElement,
+        frameX: number,
+        frameY: number,
+        frameWidth: number,
+        frameHeight: number,
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        scaleX: number = 1,
+        scaleY: number = 1,
+        flipX: boolean = false
+    ): void {
+        this.ctx.save();
+        this.ctx.translate(x + width / 2, y + height);
+        if (flipX) this.ctx.scale(-1, 1);
+        this.ctx.scale(scaleX, scaleY);
+
+        this.ctx.drawImage(
+            image,
+            frameX, frameY, frameWidth, frameHeight, // Source
+            -width / 2, -height, width, height       // Destination
+        );
+
+        this.ctx.restore();
+    }
+
+    /**
      * Draw text with outline
      */
     drawText(
