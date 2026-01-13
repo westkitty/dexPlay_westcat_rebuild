@@ -241,12 +241,19 @@ export class GameScene implements Scene {
 
         ctx.restore();
 
+        // Draw Boss
+        if (this.boss) {
+            this.boss.draw(ctx);
+        }
+
         // HUD
         ctx.save();
         ctx.resetTransform();
         ctx.fillStyle = '#FFF';
         ctx.font = '20px monospace';
         ctx.fillText(`SCORE: ${this.score}`, 20, 30);
+        ctx.fillText(`COINS: ${this.player.coins}`, 20, 60);
+        ctx.fillText(`TOTEMS: ${TotemRegistry.getCollectedCount()}`, 20, 90);
         ctx.restore();
     }
 }

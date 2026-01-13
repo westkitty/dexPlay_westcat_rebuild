@@ -152,6 +152,9 @@ export class TitleScene implements Scene {
         ctx.drawImage(this.mountainsCanvas, mOffset, 0);
         ctx.drawImage(this.mountainsCanvas, mOffset + this.mountainsCanvas.width, 0);
 
+        // Mode 7 Floor (Demo) - Draw over the lower half
+        this.engine.renderer.drawMode7Floor(this.foregroundCanvas, HEIGHT - 120, 150);
+
         // Trees (0.5x speed)
         const tOffset = -(scroll * 0.5) % this.treesCanvas.width;
         ctx.drawImage(this.treesCanvas, tOffset, 0);
