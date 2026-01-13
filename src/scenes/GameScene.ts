@@ -1,391 +1,484 @@
-import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
-import { Player } from '../entities/Player';
-import { Snail } from '../entities/Snail';
-import { Bat } from '../entities/Bat';
-import { TILE_SIZE } from '../constants/Physics';
-import { LEVEL_1 } from '../levels/Level1';
-import { HUD } from '../ui/HUD';
-import { audioSynth } from '../utils/AudioSynth';
-import { ParallaxBackground } from '../entities/Background';
-import { TotemPole, HockeyStick } from '../entities/Decorations';
-import { ParticleManager } from '../utils/ParticleManager';
-import { COWICHAN_PALETTE } from '../constants/Colors';
-
 /**
- * Game Scene - Main gameplay with Duncan BC theme
+ * Game Scene - Main Gameplay (High Res 800x600)
+ * 
+ * Pure canvas rendering with proper game architecture.
  */
-export class GameScene extends Phaser.Scene {
-    // Entities
+
+import { Engine } from '../engine/Engine';
+import type { Scene } from '../engine/Engine';
+import { Player } from '../player/PlayerFSM';
+import type { AABB } from '../physics/Physics';
+import { checkAABB, resolveCollision } from '../physics/Physics';
+import { COWICHAN_PALETTE, COWICHAN_CSS } from '../constants/Colors';
+
+interface Platform extends AABB {
+    color: string;
+}
+
+interface Coin {
+    x: number;
+    y: number;
+    collected: boolean;
+}
+
+interface Enemy {
+    x: number;
+    y: number;
+    vx: number;
+    width: number;
+    height: number;
+    alive: boolean;
+}
+
+export class GameScene implements Scene {
+    private engine: Engine;
     private player!: Player;
-    private enemies!: Phaser.GameObjects.Group;
-    private coins!: Phaser.GameObjects.Group;
-    private goal!: Phaser.GameObjects.Rectangle;
 
-    // Level
-    private platforms!: Phaser.Physics.Arcade.StaticGroup;
-    private spikes!: Phaser.Physics.Arcade.StaticGroup;
+    // Level data
+    private platforms: Platform[] = [];
+    private coins: Coin[] = [];
+    private enemies: Enemy[] = [];
+    private goal!: AABB;
 
-    // Duncan BC Elements
-    private background!: ParallaxBackground;
-    private particles!: ParticleManager;
-    private totemPoles: TotemPole[] = [];
-
-    // UI
-    private hud!: HUD;
-
-    // Game state
+    // HUD
     private score: number = 0;
-    private isPaused: boolean = false;
+    private health: number = 3;
     private gameTime: number = 0;
-    private levelComplete: boolean = false;
 
-    // Accessibility toggles
-    private autoRun: boolean = false;
-    private assistMode: boolean = false;
-    private highContrast: boolean = false;
+    // Level bounds
+    private levelWidth: number = 3200;
+    private levelHeight: number = 600;
 
-    constructor() {
-        super({ key: 'GameScene' });
+    constructor(engine: Engine) {
+        this.engine = engine;
     }
 
-    create(): void {
+    enter(): void {
+        console.log('🎮 Entering Game Scene');
+
+        // Create player
+        this.player = new Player(this.engine, 100, 400);
+
+        // Generate level
+        this.generateLevel();
+
+        // Set camera bounds
+        this.engine.camera.setBounds(0, 0, this.levelWidth, this.levelHeight);
+        this.engine.camera.snapTo(this.player.x, this.player.y);
+
         // Reset state
         this.score = 0;
+        this.health = 3;
         this.gameTime = 0;
-        this.levelComplete = false;
-        this.isPaused = false;
-
-        // Unlock audio
-        if (!audioSynth.isUnlocked()) {
-            audioSynth.unlock();
-        }
-
-        // Create Cowichan Valley sky
-        this.cameras.main.setBackgroundColor(COWICHAN_PALETTE.SKY_BLUE);
-
-        // Create parallax background (mountains, trees, clouds)
-        this.background = new ParallaxBackground(this);
-
-        // Create particle effect manager
-        this.particles = new ParticleManager(this);
-
-        // Create level from data
-        this.createLevel();
-
-        // Add Duncan BC decorations
-        this.addDuncanDecorations();
-
-        // Create goal zone
-        this.createGoal();
-
-        // Create player at spawn point
-        const spawn = LEVEL_1.spawns.player;
-        this.player = new Player(this, spawn.x * TILE_SIZE, spawn.y * TILE_SIZE);
-
-        // Create enemies group
-        this.enemies = this.add.group();
-        this.createEnemies();
-
-        // Create coins group
-        this.coins = this.add.group();
-        this.createCoins();
-
-        // Set up collisions
-        this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.collider(this.enemies, this.platforms);
-
-        // Player-enemy overlap (damage or stomp)
-        this.physics.add.overlap(
-            this.player,
-            this.enemies,
-            this.handlePlayerEnemyCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-            undefined,
-            this
-        );
-
-        // Player-coin overlap (collect)
-        this.physics.add.overlap(
-            this.player,
-            this.coins,
-            this.collectCoin as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-            undefined,
-            this
-        );
-
-        // Player-spike overlap (damage)
-        this.physics.add.overlap(
-            this.player,
-            this.spikes,
-            this.handleSpikeHit as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-            undefined,
-            this
-        );
-
-        // Set up camera to follow player
-        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-        this.cameras.main.setBounds(0, 0, LEVEL_1.width * TILE_SIZE, LEVEL_1.height * TILE_SIZE);
-
-        // Create HUD
-        this.hud = new HUD(this);
-
-        // Set up input
-        this.setupInput();
-
-        // World bounds
-        this.physics.world.setBounds(0, 0, LEVEL_1.width * TILE_SIZE, LEVEL_1.height * TILE_SIZE);
     }
 
-    update(time: number, delta: number): void {
-        if (this.isPaused || this.levelComplete) return;
-
-        // Update game time
-        this.gameTime += delta;
-
-        // Update parallax background
-        this.background.update(time);
-
-        // Update player
-        this.player.update(time, delta, this.autoRun, this.assistMode);
-
-        // Wall slide particle effect
-        if (this.player.state === 'wallSlide') {
-            if (Math.random() < 0.3) {
-                this.particles.wallSlideSparks(this.player.x, this.player.y + 10, this.player.visible);
-            }
-        }
-
-        // Update enemies
-        this.enemies.getChildren().forEach((enemy: any) => {
-            if (enemy.update) {
-                enemy.update(time, delta);
-            }
-        });
-
-        // Update HUD
-        this.hud.update(this.player.health, this.score, this.player.coins, this.gameTime);
-
-        // Check for death (fell off level)
-        if (this.player.y > LEVEL_1.height * TILE_SIZE + 50) {
-            this.player.takeDamage();
-            this.handlePlayerDeath();
-        }
-
-        // Check for game over
-        if (this.player.isDead()) {
-            this.handleGameOver();
-        }
-
-        // Check for goal reached
-        this.checkGoal();
+    exit(): void {
+        console.log('🎮 Exiting Game Scene');
     }
 
-    private addDuncanDecorations(): void {
-        // Add totem poles at strategic locations (City of Totems!)
-        const totemLocations = [
-            { x: 15, y: LEVEL_1.height - 2 },
-            { x: 30, y: LEVEL_1.height - 2 },
-            { x: 50, y: LEVEL_1.height - 2 },
-            { x: 70, y: LEVEL_1.height - 2 },
+    private generateLevel(): void {
+        this.platforms = [];
+        this.coins = [];
+        this.enemies = [];
+
+        // Ground
+        for (let x = 0; x < this.levelWidth; x += 64) {
+            // Gaps
+            if ((x > 600 && x < 700) || (x > 1400 && x < 1500) || (x > 2200 && x < 2300)) continue;
+
+            this.platforms.push({
+                x: x,
+                y: this.levelHeight - 64,
+                width: 64,
+                height: 64,
+                color: COWICHAN_CSS.SALAL_GREEN,
+            });
+        }
+
+        // Floating platforms
+        const floatingPlatforms = [
+            { x: 300, y: 400, w: 128 },
+            { x: 500, y: 320, w: 96 },
+            { x: 800, y: 380, w: 128 },
+            { x: 1000, y: 280, w: 160 },
+            { x: 1200, y: 360, w: 96 },
+            { x: 1600, y: 320, w: 128 },
+            { x: 1800, y: 240, w: 96 },
+            { x: 2000, y: 300, w: 160 },
+            { x: 2400, y: 360, w: 128 },
+            { x: 2600, y: 280, w: 96 },
+            { x: 2800, y: 200, w: 160 },
         ];
 
-        totemLocations.forEach(pos => {
-            const totem = new TotemPole(this, pos.x * TILE_SIZE, pos.y * TILE_SIZE, 128);
-            this.totemPoles.push(totem);
+        floatingPlatforms.forEach(p => {
+            this.platforms.push({
+                x: p.x,
+                y: p.y,
+                width: p.w,
+                height: 32,
+                color: COWICHAN_CSS.CEDAR_RED,
+            });
         });
 
-        // Add World's Largest Hockey Stick in background
-        new HockeyStick(this, 400, 100);
-        new HockeyStick(this, 1200, 120);
+        // Walls for wall-jumping
+        const walls = [
+            { x: 900, y: 200, h: 300 },
+            { x: 1100, y: 200, h: 300 },
+            { x: 1700, y: 150, h: 350 },
+            { x: 1900, y: 150, h: 350 },
+        ];
+
+        walls.forEach(w => {
+            this.platforms.push({
+                x: w.x,
+                y: w.y,
+                width: 32,
+                height: w.h,
+                color: COWICHAN_CSS.WET_ASPHALT,
+            });
+        });
+
+        // Coins
+        const coinPositions = [
+            { x: 350, y: 360 },
+            { x: 550, y: 280 },
+            { x: 850, y: 340 },
+            { x: 1050, y: 240 },
+            { x: 1000, y: 380 },
+            { x: 1250, y: 320 },
+            { x: 400, y: 480 },
+            { x: 800, y: 480 },
+            { x: 1200, y: 480 },
+            { x: 1650, y: 280 },
+            { x: 1850, y: 200 },
+            { x: 2050, y: 260 },
+            { x: 2450, y: 320 },
+            { x: 2650, y: 240 },
+            { x: 2850, y: 160 },
+        ];
+
+        coinPositions.forEach(c => {
+            this.coins.push({ x: c.x, y: c.y, collected: false });
+        });
+
+        // Enemies
+        const enemyPositions = [
+            { x: 400, y: 480 },
+            { x: 850, y: 480 },
+            { x: 1250, y: 480 },
+            { x: 1650, y: 480 },
+            { x: 2100, y: 480 },
+            { x: 2500, y: 480 },
+        ];
+
+        enemyPositions.forEach(e => {
+            this.enemies.push({
+                x: e.x,
+                y: e.y,
+                vx: 40 * (Math.random() > 0.5 ? 1 : -1),
+                width: 32,
+                height: 32,
+                alive: true,
+            });
+        });
+
+        // Goal
+        this.goal = { x: 3000, y: this.levelHeight - 128, width: 64, height: 64 };
     }
 
-    private createLevel(): void {
-        this.platforms = this.physics.add.staticGroup();
-        this.spikes = this.physics.add.staticGroup();
+    update(dt: number): void {
+        this.gameTime += dt;
+        const dtSec = dt / 1000;
 
-        const tileMap = LEVEL_1.tiles;
+        // Update player
+        this.player.update(dt);
 
-        for (let y = 0; y < tileMap.length; y++) {
-            for (let x = 0; x < tileMap[y].length; x++) {
-                const tileType = tileMap[y][x];
-                const posX = x * TILE_SIZE + TILE_SIZE / 2;
-                const posY = y * TILE_SIZE + TILE_SIZE / 2;
+        // Platform collisions
+        this.handlePlatformCollisions();
 
-                if (tileType === 1 || tileType === 2) {
-                    // Ground or grass-top (using Duncan themed tiles)
-                    const platform = this.platforms.create(posX, posY, 'tileset');
-                    platform.setDisplaySize(TILE_SIZE, TILE_SIZE);
+        // Update enemies
+        this.updateEnemies(dtSec);
 
-                    // Use specific tile from enhanced tileset
-                    const tileIndex = tileType === 2 ? 2 : 1; // Cedar or grass
-                    platform.setFrame(0);
-                    platform.setTint(tileType === 2 ? COWICHAN_PALETTE.SALAL_GREEN : COWICHAN_PALETTE.CEDAR_RED);
+        // Coin collection
+        this.checkCoinCollection();
 
-                    platform.refreshBody();
-                } else if (tileType === 3) {
-                    // Platform (yellow footprints on concrete!)
-                    const platform = this.platforms.create(posX, posY, 'tileset');
-                    platform.setDisplaySize(TILE_SIZE, TILE_SIZE / 2);
-                    platform.setTint(COWICHAN_PALETTE.WET_ASPHALT);
-                    platform.refreshBody();
-                } else if (tileType === 4) {
-                    // Spike
-                    const spike = this.spikes.create(posX, posY, 'tileset');
-                    spike.setDisplaySize(TILE_SIZE, TILE_SIZE);
-                    spike.setTint(0xdc143c);
-                    spike.refreshBody();
+        // Enemy collision
+        this.checkEnemyCollision();
+
+        // Check goal
+        this.checkGoal();
+
+        // Death (fell off)
+        if (this.player.y > this.levelHeight + 100) {
+            this.respawnPlayer();
+        }
+
+        // Pause
+        if (this.engine.input.pause) {
+            console.log('⏸️ Paused');
+        }
+    }
+
+    private handlePlatformCollisions(): void {
+        this.player.grounded = false;
+        this.player.onLeftWall = false;
+        this.player.onRightWall = false;
+
+        const playerBounds = this.player.getBounds();
+
+        for (const platform of this.platforms) {
+            if (checkAABB(playerBounds, platform)) {
+                const result = resolveCollision(this.player, platform);
+
+                if (result.grounded) {
+                    this.player.grounded = true;
+                }
+                if (result.hitLeft) {
+                    this.player.onRightWall = true;
+                }
+                if (result.hitRight) {
+                    this.player.onLeftWall = true;
                 }
             }
         }
     }
 
-    private createGoal(): void {
-        const goalX = (LEVEL_1.width - 3) * TILE_SIZE;
-        const goalY = (LEVEL_1.height - 5) * TILE_SIZE;
+    private updateEnemies(dtSec: number): void {
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
 
-        this.goal = this.add.rectangle(goalX, goalY, TILE_SIZE * 2, TILE_SIZE * 4, COWICHAN_PALETTE.YELLOW_FOOTPRINT, 0.5);
-        this.physics.add.existing(this.goal, true);
+            enemy.x += enemy.vx * dtSec;
 
-        this.add.text(goalX, goalY - 30, '🏁', { fontSize: '32px' }).setOrigin(0.5);
-        this.add.text(goalX, goalY + 70, 'DUNCAN\nFINISH', {
-            fontFamily: 'Arial Black',
-            fontSize: '14px',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: 3,
-            align: 'center',
-        }).setOrigin(0.5);
-    }
+            // Simple patrol - reverse at edges
+            const onPlatform = this.platforms.some(p =>
+                enemy.x >= p.x - 10 &&
+                enemy.x + enemy.width <= p.x + p.width + 10 &&
+                Math.abs((enemy.y + enemy.height) - p.y) < 10
+            );
 
-    private createEnemies(): void {
-        for (const enemyData of LEVEL_1.spawns.enemies) {
-            const x = enemyData.x * TILE_SIZE;
-            const y = enemyData.y * TILE_SIZE;
-
-            if (enemyData.type === 'snail') {
-                // Use raccoon instead (Duncan wildlife!)
-                const raccoon = this.add.sprite(x, y, 'raccoon');
-                raccoon.setDisplaySize(32, 32);
-                this.physics.add.existing(raccoon);
-                (raccoon.body as Phaser.Physics.Arcade.Body).setVelocityX(25);
-                this.enemies.add(raccoon);
-            } else if (enemyData.type === 'bat') {
-                // Use seagull (coastal bird!)
-                const seagull = this.add.sprite(x, y, 'seagull');
-                seagull.setDisplaySize(32, 32);
-                this.physics.add.existing(seagull);
-                (seagull.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-                (seagull.body as Phaser.Physics.Arcade.Body).setVelocityX(50);
-                this.enemies.add(seagull);
+            // Reverse direction at platform edges
+            if (!onPlatform || enemy.x < 50 || enemy.x > this.levelWidth - 50) {
+                enemy.vx *= -1;
             }
         }
     }
 
-    private createCoins(): void {
-        for (const coinPos of LEVEL_1.spawns.coins) {
-            const x = coinPos.x * TILE_SIZE;
-            const y = coinPos.y * TILE_SIZE;
+    private checkCoinCollection(): void {
+        const playerBounds = this.player.getBounds();
 
-            const coin = this.physics.add.sprite(x, y, 'coin');
-            coin.setDisplaySize(24, 24);
-            (coin.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+        for (const coin of this.coins) {
+            if (coin.collected) continue;
 
-            // Spin animation
-            this.tweens.add({
-                targets: coin,
-                scaleX: { from: 1, to: 0.2 },
-                duration: 300,
-                yoyo: true,
-                repeat: -1,
-            });
-
-            this.coins.add(coin);
+            const coinBounds = { x: coin.x, y: coin.y, width: 20, height: 20 };
+            if (checkAABB(playerBounds, coinBounds)) {
+                coin.collected = true;
+                this.score += 100;
+                this.engine.particles.emitGlitter(coin.x + 10, coin.y + 10);
+                this.engine.camera.shake(2, 50);
+            }
         }
     }
 
-    private handlePlayerEnemyCollision(player: any, enemy: any): void {
-        if (player.body.velocity.y > 0 && player.y < enemy.y - 8) {
-            // Stomp!
-            this.particles.enemyDefeat(enemy.x, enemy.y);
-            enemy.destroy();
-            this.score += 100;
-            audioSynth.playStomp();
-            player.body.setVelocityY(-200);
+    private checkEnemyCollision(): void {
+        const playerBounds = this.player.getBounds();
+
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+
+            const enemyBounds = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height };
+            if (checkAABB(playerBounds, enemyBounds)) {
+                // Stomp from above
+                if (this.player.vy > 0 && this.player.y + this.player.height < enemy.y + enemy.height / 2) {
+                    enemy.alive = false;
+                    this.player.vy = -250;
+                    this.score += 200;
+                    this.engine.particles.emitExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                    this.engine.camera.shake(5, 100);
+                } else {
+                    // Take damage
+                    this.takeDamage();
+                }
+            }
+        }
+    }
+
+    private takeDamage(): void {
+        this.health--;
+        this.engine.camera.shake(8, 150);
+
+        if (this.health <= 0) {
+            this.engine.switchScene('title');
         } else {
-            (player as Player).takeDamage();
+            this.respawnPlayer();
         }
     }
 
-    private collectCoin(player: any, coin: any): void {
-        this.particles.coinCollect(coin.x, coin.y);
-        coin.destroy();
-        this.score += 10;
-        (player as Player).coins++;
-        audioSynth.playCoin();
-    }
-
-    private handleSpikeHit(player: any, spike: any): void {
-        (player as Player).takeDamage();
-    }
-
-    private handlePlayerDeath(): void {
-        const spawn = LEVEL_1.spawns.player;
-        this.player.setPosition(spawn.x * TILE_SIZE, spawn.y * TILE_SIZE);
-        this.player.setVelocity(0, 0);
-    }
-
-    private handleGameOver(): void {
-        this.levelComplete = true;
-        this.scene.start('GameOverScene', {
-            score: this.score,
-            coins: this.player.coins,
-        });
+    private respawnPlayer(): void {
+        this.player.x = 100;
+        this.player.y = 400;
+        this.player.vx = 0;
+        this.player.vy = 0;
+        this.engine.camera.snapTo(this.player.x, this.player.y);
     }
 
     private checkGoal(): void {
         const playerBounds = this.player.getBounds();
-        const goalBounds = this.goal.getBounds();
-
-        if (Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, goalBounds)) {
-            this.levelComplete = true;
-            this.scene.start('VictoryScene', {
-                score: this.score,
-                coins: this.player.coins,
-                time: this.gameTime,
-            });
+        if (checkAABB(playerBounds, this.goal)) {
+            console.log('🎉 VICTORY!');
+            this.engine.switchScene('title');
         }
     }
 
-    private setupInput(): void {
-        this.input.keyboard!.on('keydown-ESC', () => {
-            this.scene.launch('PauseScene');
-            this.scene.pause();
-            this.isPaused = true;
-        });
+    draw(ctx: CanvasRenderingContext2D, alpha: number): void {
+        const { WIDTH, HEIGHT } = this.engine;
 
-        this.events.on('resume', () => {
-            this.isPaused = false;
-        });
+        // === SKY (screen space - before camera) ===
+        ctx.save();
+        ctx.resetTransform();
 
-        this.input.keyboard!.on('keydown-R', () => {
-            this.autoRun = !this.autoRun;
-            console.log(`Auto-run: ${this.autoRun ? 'ON' : 'OFF'}`);
-        });
+        // Progress-based gradient (dawn -> day based on X position)
+        const progress = this.player.x / this.levelWidth;
+        const topColor = this.lerpColor('#FF6B35', '#4A90D9', progress);
+        const bottomColor = this.lerpColor('#FFB347', '#87CEEB', progress);
 
-        this.input.keyboard!.on('keydown-T', () => {
-            this.assistMode = !this.assistMode;
-            console.log(`Assist mode: ${this.assistMode ? 'ON' : 'OFF'}`);
-        });
+        const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        gradient.addColorStop(0, topColor);
+        gradient.addColorStop(1, bottomColor);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        ctx.restore();
 
-        this.input.keyboard!.on('keydown-C', () => {
-            this.highContrast = !this.highContrast;
-            this.cameras.main.setBackgroundColor(this.highContrast ? 0x000000 : COWICHAN_PALETTE.SKY_BLUE);
-            console.log(`High contrast: ${this.highContrast ? 'ON' : 'OFF'}`);
-        });
+        // === WORLD SPACE (camera applied by engine) ===
 
-        this.input.keyboard!.on('keydown-M', () => {
-            const muted = audioSynth.toggleMute();
-            console.log(`Audio: ${muted ? 'MUTED' : 'ON'}`);
-        });
+        // Draw platforms
+        for (const platform of this.platforms) {
+            ctx.fillStyle = platform.color;
+            ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+
+            // X-bracing for cedar platforms
+            if (platform.color === COWICHAN_CSS.CEDAR_RED && platform.height === 32) {
+                ctx.strokeStyle = '#5A2D00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(platform.x, platform.y);
+                ctx.lineTo(platform.x + platform.width, platform.y + platform.height);
+                ctx.moveTo(platform.x + platform.width, platform.y);
+                ctx.lineTo(platform.x, platform.y + platform.height);
+                ctx.stroke();
+            }
+        }
+
+        // Draw coins
+        for (const coin of this.coins) {
+            if (coin.collected) continue;
+
+            const bob = Math.sin(this.gameTime / 150 + coin.x) * 3;
+            ctx.fillStyle = COWICHAN_CSS.YELLOW_FOOTPRINT;
+            ctx.beginPath();
+            ctx.arc(coin.x + 10, coin.y + 10 + bob, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Shine
+            ctx.fillStyle = '#FFFFCC';
+            ctx.beginPath();
+            ctx.arc(coin.x + 7, coin.y + 7 + bob, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw enemies
+        for (const enemy of this.enemies) {
+            if (!enemy.alive) continue;
+
+            // Raccoon (simple)
+            ctx.fillStyle = COWICHAN_CSS.RACCOON_GRAY;
+            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+            // Eye mask
+            ctx.fillStyle = COWICHAN_CSS.RACCOON_BLACK;
+            ctx.fillRect(enemy.x + 4, enemy.y + 8, 24, 8);
+
+            // Eyes
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(enemy.x + 8, enemy.y + 10, 4, 4);
+            ctx.fillRect(enemy.x + 20, enemy.y + 10, 4, 4);
+        }
+
+        // Draw goal
+        ctx.fillStyle = COWICHAN_CSS.YELLOW_FOOTPRINT;
+        ctx.globalAlpha = 0.5 + Math.sin(this.gameTime / 200) * 0.3;
+        ctx.fillRect(this.goal.x, this.goal.y, this.goal.width, this.goal.height);
+        ctx.globalAlpha = 1;
+
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏁', this.goal.x + 32, this.goal.y + 40);
+
+        // Draw player (with squash & stretch)
+        ctx.save();
+        ctx.translate(
+            this.player.x + this.player.width / 2,
+            this.player.y + this.player.height
+        );
+        ctx.scale(
+            (this.player.facingRight ? 1 : -1) * this.player.scaleX,
+            this.player.scaleY
+        );
+
+        // Body
+        ctx.fillStyle = COWICHAN_CSS.CAT_ORANGE;
+        ctx.fillRect(-this.player.width / 2, -this.player.height, this.player.width, this.player.height);
+
+        // Eyes
+        ctx.fillStyle = '#00FF00';
+        ctx.fillRect(-8, -this.player.height + 10, 6, 6);
+        ctx.fillRect(2, -this.player.height + 10, 6, 6);
+
+        // State debug
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.player.state.toUpperCase(), 0, -this.player.height - 5);
+
+        ctx.restore();
+
+        // === HUD (screen space) ===
+        ctx.save();
+        ctx.resetTransform();
+
+        // Health
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = i < this.health ? '#FF0000' : '#333333';
+            ctx.font = '24px Arial';
+            ctx.fillText(i < this.health ? '♥' : '♡', 20 + i * 30, 35);
+        }
+
+        // Score
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`SCORE: ${this.score}`, WIDTH / 2, 30);
+
+        // Timer
+        const seconds = Math.floor(this.gameTime / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        ctx.textAlign = 'right';
+        ctx.fillText(`${minutes}:${secs.toString().padStart(2, '0')}`, WIDTH - 20, 30);
+
+        ctx.restore();
+    }
+
+    private lerpColor(a: string, b: string, t: number): string {
+        const parse = (c: string) => [
+            parseInt(c.slice(1, 3), 16),
+            parseInt(c.slice(3, 5), 16),
+            parseInt(c.slice(5, 7), 16),
+        ];
+        const [ar, ag, ab] = parse(a);
+        const [br, bg, bb] = parse(b);
+        const r = Math.round(ar + (br - ar) * t);
+        const g = Math.round(ag + (bg - ag) * t);
+        const bl = Math.round(ab + (bb - ab) * t);
+        return `rgb(${r},${g},${bl})`;
     }
 }

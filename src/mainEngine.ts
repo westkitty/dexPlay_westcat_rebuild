@@ -6,7 +6,7 @@
 
 import { Engine } from './engine/Engine';
 import { TitleScene } from './scenes/TitleScene';
-import { GameSceneNew } from './scenes/GameSceneNew';
+import { GameScene } from './scenes/GameScene';
 
 // Wait for DOM
 window.addEventListener('DOMContentLoaded', () => {
@@ -17,7 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Register scenes
     engine.addScene('title', new TitleScene(engine));
-    engine.addScene('game', new GameSceneNew(engine));
+    engine.addScene('game', new GameScene(engine));
 
     // Start with title
     engine.switchScene('title');

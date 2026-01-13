@@ -25,10 +25,10 @@ function createWindow() {
 
     if (isDev) {
         // Vite dev server
-        win.loadURL('http://localhost:5173/engine.html');
+        win.loadURL('http://localhost:5173/index.html');
     } else {
         // Production build
-        win.loadFile(path.join(__dirname, '../dist/engine.html'));
+        win.loadFile(path.join(__dirname, '../dist/index.html'));
     }
 
     // Remove menu bar for immersive SNES feel

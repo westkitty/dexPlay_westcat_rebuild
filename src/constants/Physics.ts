@@ -7,7 +7,7 @@
  * - Formula reference: H ≈ v² / (2g)
  */
 
-// Gravity (applied per frame in Phaser Arcade)
+// Gravity (applied per frame)
 export const GRAVITY = 800;
 
 // Player movement
