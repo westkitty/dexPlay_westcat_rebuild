@@ -14,6 +14,7 @@ function createWindow() {
         resizable: false,     // Fixed aspect ratio
         title: 'West Cat Goes East',
         backgroundColor: '#000000',
+        icon: path.join(__dirname, '../icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             nodeIntegration: false,
@@ -27,6 +28,8 @@ function createWindow() {
     if (isDev) {
         // Vite dev server
         win.loadURL('http://localhost:5173/index.html');
+        // Enable DevTools in development
+        win.webContents.openDevTools();
     } else {
         // Production build
         win.loadFile(path.join(__dirname, '../dist/index.html'));

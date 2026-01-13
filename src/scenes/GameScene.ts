@@ -12,6 +12,7 @@ import { COWICHAN_CSS } from '../constants/Colors';
 import { SaveSystem } from '../engine/SaveSystem';
 import { TotemRegistry } from '../engine/TotemRegistry';
 import { BossOwl } from '../entities/BossOwl';
+import { logger } from '../utils/Logger';
 
 export class GameScene implements Scene {
     private engine: Engine;
@@ -29,7 +30,7 @@ export class GameScene implements Scene {
     }
 
     async enter(): Promise<void> {
-        console.log('🎮 Entering Game Scene (Data-Driven)');
+        logger.info('Entering Game Scene');
 
         // Load level
         this.levelData = await LevelLoader.loadLevel('Level1.json');
@@ -54,7 +55,7 @@ export class GameScene implements Scene {
     }
 
     exit(): void {
-        console.log('🎮 Exiting Game Scene');
+        logger.info('Exiting Game Scene');
     }
 
     async update(dt: number): Promise<void> {
@@ -145,7 +146,7 @@ export class GameScene implements Scene {
                         score: this.score,
                         level: 1,
                         lastSaved: ''
-                    }).catch(err => console.error("Failed to save:", err));
+                    }).catch(err => logger.error("Failed to save game", err));
                 } else if (entity.type === 'enemy') {
                     // Stomp check
                     if (this.player.vy > 0 && this.player.y + this.player.height < entity.y + 10) {

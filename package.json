@@ -20,7 +20,26 @@
     "vite": "^7.2.4",
     "wait-on": "^9.0.3"
   },
-  "dependencies": {
-    "phaser": "^3.90.0"
+  "build": {
+    "appId": "com.westkitty.westcatgoeseast",
+    "productName": "West Cat Goes East",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "icon.png",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "icon.png",
+      "category": "public.app-category.games",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
   }
 }

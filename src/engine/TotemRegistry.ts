@@ -4,6 +4,8 @@
  * Collectible bestiary for the "City of Totems".
  */
 
+import { logger } from '../utils/Logger';
+
 export interface TotemInfo {
     id: string;
     name: string;
@@ -41,7 +43,7 @@ export class TotemRegistry {
         const totem = this.totems.get(id);
         if (totem) {
             totem.found = true;
-            console.log(`🗿 Totem Found: ${totem.name}`);
+            logger.info(`Totem Found: ${totem.name}`);
         }
     }
 

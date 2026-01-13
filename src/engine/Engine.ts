@@ -10,6 +10,7 @@ import { InputSystem } from './InputSystem';
 import { ParticleSystem } from './ParticleSystem';
 import { Renderer } from './Renderer';
 import { WeatherManager } from './WeatherManager';
+import { logger } from '../utils/Logger';
 
 // Target 60 FPS logic tick
 const FIXED_TIMESTEP = 1000 / 60;
@@ -111,7 +112,7 @@ export class Engine {
         this.weather = new WeatherManager(this.WIDTH, this.HEIGHT);
         this.sound = new SoundDevice();
 
-        console.log('🎮 Engine initialized');
+        logger.info('Engine initialized');
     }
 
     /**

@@ -7,6 +7,7 @@
 import { Engine } from '../engine/Engine';
 import { COWICHAN_CSS } from '../constants/Colors';
 import { Player } from '../player/PlayerFSM';
+import { logger } from '../utils/Logger';
 
 export type BossState = 'hover' | 'swoop' | 'stagger' | 'feather_rain';
 
@@ -109,7 +110,7 @@ export class BossOwl {
         this.engine.camera.shake(15, 200);
         this.enterState('stagger');
         if (this.health <= 0) {
-            console.log('🏆 BOSS DEFEATED!');
+            logger.info('BOSS DEFEATED!');
             this.engine.particles.emitExplosion(this.x + 48, this.y + 48);
         }
     }

@@ -8,6 +8,7 @@
 import { Engine } from '../engine/Engine';
 import type { Scene } from '../engine/Engine';
 import { COWICHAN_PALETTE, COWICHAN_CSS } from '../constants/Colors';
+import { logger } from '../utils/Logger';
 
 export class TitleScene implements Scene {
     private engine: Engine;
@@ -28,12 +29,12 @@ export class TitleScene implements Scene {
     }
 
     enter(): void {
-        console.log('🎬 Entering Title Scene');
+        logger.info('Entering Title Scene');
         this.generateParallaxLayers();
     }
 
     exit(): void {
-        console.log('🎬 Exiting Title Scene');
+        logger.info('Exiting Title Scene');
     }
 
     private generateParallaxLayers(): void {

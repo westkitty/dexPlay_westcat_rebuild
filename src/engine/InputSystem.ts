@@ -5,6 +5,8 @@
  * Provides both current state and edge detection (just pressed/released).
  */
 
+import { logger } from '../utils/Logger';
+
 export class InputSystem {
     // Current frame state
     private keys: Set<string> = new Set();
@@ -52,12 +54,12 @@ export class InputSystem {
         // Gamepad connection
         window.addEventListener('gamepadconnected', (e) => {
             this.gamepadIndex = e.gamepad.index;
-            console.log(`🎮 Gamepad connected: ${e.gamepad.id}`);
+            logger.debug(`Gamepad connected: ${e.gamepad.id}`);
         });
 
         window.addEventListener('gamepaddisconnected', () => {
             this.gamepadIndex = -1;
-            console.log('🎮 Gamepad disconnected');
+            logger.debug('Gamepad disconnected');
         });
     }
 
