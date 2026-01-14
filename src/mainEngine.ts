@@ -4,9 +4,9 @@
  * No Phaser. No frameworks. Just requestAnimationFrame and game dev code.
  */
 
-import { Engine } from './engine/Engine';
-import { TitleScene } from './scenes/TitleScene';
-import { GameScene } from './scenes/GameScene';
+import { Engine } from './core/Engine';
+import { TitleScene } from './ui/TitleScene';
+import { GameScene } from './game/GameScene';
 
 // Wait for DOM
 window.addEventListener('DOMContentLoaded', () => {

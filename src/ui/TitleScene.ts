@@ -5,8 +5,8 @@
  * Canvas-only UI (no HTML overlays).
  */
 
-import { Engine } from '../engine/Engine';
-import type { Scene } from '../engine/Engine';
+import { Engine } from '../core/Engine';
+import type { Scene } from '../core/Engine';
 import { COWICHAN_PALETTE, COWICHAN_CSS } from '../constants/Colors';
 import { logger } from '../utils/Logger';
 

@@ -4,7 +4,7 @@
  * Handles PNW rain and fog effects.
  */
 
-import { Renderer } from './Renderer';
+import { Renderer } from '../core/Renderer';
 
 export class WeatherManager {
     private rainParticles: { x: number; y: number; speed: number; length: number }[] = [];

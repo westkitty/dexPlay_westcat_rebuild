@@ -4,10 +4,10 @@
  * Multi-stage flight boss for the PNW session.
  */
 
-import { Engine } from '../engine/Engine';
-import { COWICHAN_CSS } from '../constants/Colors';
+import { Engine } from '../../core/Engine';
+import { COWICHAN_CSS } from '../../constants/Colors';
 import { Player } from '../player/PlayerFSM';
-import { logger } from '../utils/Logger';
+import { logger } from '../../utils/Logger';
 
 export type BossState = 'hover' | 'swoop' | 'stagger' | 'feather_rain';
 

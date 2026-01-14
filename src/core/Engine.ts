@@ -7,9 +7,9 @@
 
 import { Camera } from './Camera';
 import { InputSystem } from './InputSystem';
-import { ParticleSystem } from './ParticleSystem';
+import { ParticleSystem } from '../systems/ParticleSystem';
 import { Renderer } from './Renderer';
-import { WeatherManager } from './WeatherManager';
+import { WeatherManager } from '../systems/WeatherManager';
 import { logger } from '../utils/Logger';
 
 // Target 60 FPS logic tick

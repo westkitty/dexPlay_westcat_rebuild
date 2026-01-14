@@ -2,16 +2,16 @@
  * Game Scene - Main Gameplay (Data-Driven)
  */
 
-import { Engine } from '../engine/Engine';
-import type { Scene } from '../engine/Engine';
-import { Player } from '../player/PlayerFSM';
-import { LevelLoader } from '../engine/LevelLoader';
-import type { LevelData } from '../engine/LevelLoader';
+import { Engine } from '../core/Engine';
+import type { Scene } from '../core/Engine';
+import { Player } from './player/PlayerFSM';
+import { LevelLoader } from '../data/LevelLoader';
+import type { LevelData } from '../data/LevelLoader';
 import { checkAABB, resolveCollision, checkSlope } from '../physics/Physics';
 import { COWICHAN_CSS } from '../constants/Colors';
-import { SaveSystem } from '../engine/SaveSystem';
-import { TotemRegistry } from '../engine/TotemRegistry';
-import { BossOwl } from '../entities/BossOwl';
+import { SaveSystem } from '../systems/SaveSystem';
+import { TotemRegistry } from '../data/TotemRegistry';
+import { BossOwl } from './entities/BossOwl';
 import { logger } from '../utils/Logger';
 
 export class GameScene implements Scene {

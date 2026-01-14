@@ -5,9 +5,9 @@
  * Each state has enter(), update(), exit() methods.
  */
 
-import { Engine } from '../engine/Engine';
-import { InputSystem } from '../engine/InputSystem';
-import { checkAABB, resolveCollision, clamp } from '../physics/Physics';
+import { Engine } from '../../core/Engine';
+import { InputSystem } from '../../core/InputSystem';
+import { checkAABB, resolveCollision, clamp } from '../../physics/Physics';
 
 // Physics constants (acceleration-based movement)
 const ACCELERATION = 1200;
